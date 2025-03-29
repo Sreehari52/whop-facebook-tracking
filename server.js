@@ -3,15 +3,14 @@ const axios = require("axios");
 const crypto = require("crypto");
 
 const app = express();
-app.use(express.json()); // Parse JSON webhook payloads
+app.use(express.json());
 
-// Manually set Facebook Pixel ID & Access Token
-const FACEBOOK_PIXEL_ID = "658182220125214"; // Replace with your Pixel ID
-const FACEBOOK_ACCESS_TOKEN = "EAAQC9vIxIIcBO4PmUhdQuZAh8dNTOCjyigC2bVqZCKZA708NUFAWP7WpZCZANCKOY3RcMh7YBWuZB1aGQjAQo7DkGIJnPFYl689RBaoqU8IMLGq9DRdLrniyaZCzPgwP56Blkdr6jMCP3QvRKSoDatjgtZB8XDVkSbuglv7ZC6FZBVZCHVTYOKKi6kr8wPOy4UDALYtigZDZD"; // Replace with your Token
+const FACEBOOK_PIXEL_ID = "658182220125214";
+const FACEBOOK_ACCESS_TOKEN = "EAAQC9vIxIIcBO4PmUhdQuZAh8dNTOCjyigC2bVqZCKZA708NUFAWP7WpZCZANCKOY3RcMh7YBWuZB1aGQjAQo7DkGIJnPFYl689RBaoqU8IMLGq9DRdLrniyaZCzPgwP56Blkdr6jMCP3QvRKSoDatjgtZB8XDVkSbuglv7ZC6FZBVZCHVTYOKKi6kr8wPOy4UDALYtigZDZD";
 
 const PORT = process.env.PORT || 3015;
 
-// Test Route
+// Health Check Route
 app.get("/whop", (req, res) => {
     res.send("✅ Webhook server is running!");
 });
@@ -19,22 +18,22 @@ app.get("/whop", (req, res) => {
 // Webhook Route
 app.post("/whop-webhook", async (req, res) => {
     try {
+        console.log("📥 Incoming Webhook Data:", req.body);
         const event = req.body;
 
         if (!event || !event.amount || !event.customer_email) {
+            console.error("❌ Invalid webhook data received", event);
             return res.status(400).send("Invalid webhook data");
         }
 
-        // Extract Payment Data
-        const purchaseValue = event.amount / 100; // Convert cents to dollars
+        const purchaseValue = event.amount / 100;
         const currency = event.currency || "USD";
         const userEmail = event.customer_email;
 
-        // Hash Email for Facebook CAPI
+        // Hash the email (SHA-256 required by Facebook)
         const hashedEmail = crypto.createHash("sha256").update(userEmail.toLowerCase()).digest("hex");
 
-        // Send Purchase Event to Facebook
-        const response = await axios.post(`https://graph.facebook.com/v13.0/${FACEBOOK_PIXEL_ID}/events`, {
+        const facebookEvent = {
             data: [{
                 event_name: "Purchase",
                 event_time: Math.floor(Date.now() / 1000),
@@ -43,13 +42,16 @@ app.post("/whop-webhook", async (req, res) => {
                 action_source: "website"
             }],
             access_token: FACEBOOK_ACCESS_TOKEN
-        });
+        };
 
-        console.log(`✅ Sent purchase event for ${userEmail}: $${purchaseValue}`);
+        console.log("📤 Sending event to Facebook:", JSON.stringify(facebookEvent, null, 2));
+
+        const response = await axios.post(`https://graph.facebook.com/v13.0/${FACEBOOK_PIXEL_ID}/events`, facebookEvent);
+
+        console.log("✅ Facebook Response:", response.data);
         res.status(200).json({ message: "Event sent to Facebook", fb_response: response.data });
-
     } catch (error) {
-        console.error("❌ Error sending event:", error.response ? error.response.data : error.message);
+        console.error("❌ Facebook API Error:", error.response?.data || error.message);
         res.status(500).json({ error: "Failed to send event", details: error.message });
     }
 });
