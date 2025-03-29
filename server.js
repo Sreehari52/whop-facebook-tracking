@@ -1,40 +1,39 @@
-require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
 const crypto = require("crypto");
 
 const app = express();
-app.use(express.json()); // Parse JSON payloads
+app.use(express.json()); // Parse JSON webhook payloads
 
-const FACEBOOK_PIXEL_ID = process.env.FACEBOOK_PIXEL_ID;
-const FACEBOOK_ACCESS_TOKEN = process.env.FACEBOOK_ACCESS_TOKEN;
+// Manually set Facebook Pixel ID & Access Token
+const FACEBOOK_PIXEL_ID = "658182220125214"; // Replace with your Pixel ID
+const FACEBOOK_ACCESS_TOKEN = "EAAQC9vIxIIcBO4PmUhdQuZAh8dNTOCjyigC2bVqZCKZA708NUFAWP7WpZCZANCKOY3RcMh7YBWuZB1aGQjAQo7DkGIJnPFYl689RBaoqU8IMLGq9DRdLrniyaZCzPgwP56Blkdr6jMCP3QvRKSoDatjgtZB8XDVkSbuglv7ZC6FZBVZCHVTYOKKi6kr8wPOy4UDALYtigZDZD"; // Replace with your Token
+
 const PORT = process.env.PORT || 3015;
 
-if (!FACEBOOK_PIXEL_ID || !FACEBOOK_ACCESS_TOKEN) {
-    console.error("❌ Missing environment variables: FACEBOOK_PIXEL_ID or FACEBOOK_ACCESS_TOKEN");
-    process.exit(1);
-}
-
+// Test Route
 app.get("/whop", (req, res) => {
     res.send("✅ Webhook server is running!");
 });
 
+// Webhook Route
 app.post("/whop-webhook", async (req, res) => {
     try {
         const event = req.body;
+
         if (!event || !event.amount || !event.customer_email) {
             return res.status(400).send("Invalid webhook data");
         }
 
-        // Extract payment details
-        const purchaseValue = event.amount / 100;
+        // Extract Payment Data
+        const purchaseValue = event.amount / 100; // Convert cents to dollars
         const currency = event.currency || "USD";
         const userEmail = event.customer_email;
 
-        // Hash email for Facebook CAPI
+        // Hash Email for Facebook CAPI
         const hashedEmail = crypto.createHash("sha256").update(userEmail.toLowerCase()).digest("hex");
 
-        // Send Purchase Event to Facebook CAPI
+        // Send Purchase Event to Facebook
         const response = await axios.post(`https://graph.facebook.com/v13.0/${FACEBOOK_PIXEL_ID}/events`, {
             data: [{
                 event_name: "Purchase",
@@ -55,5 +54,5 @@ app.post("/whop-webhook", async (req, res) => {
     }
 });
 
-// Start server
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+// Start Server
+app.listen(PORT, () => console.log(`🚀 Webhook server running on port ${PORT}`));
